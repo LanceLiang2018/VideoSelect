@@ -30,9 +30,10 @@ class VideoSelect:
             [[self.VideoFrame(self.root, filename=self.filelist[j * self.height + i]) for i in range(self.height)]
              for j in range(self.width)]
 
-        for x in self.video_frames:
-            for y in x:
-                y.frame.pack()
+        for x in range(len(self.video_frames)):
+            for y in range(len(self.video_frames[x])):
+                video_frame = self.video_frames[x][y]
+                video_frame.frame.grid(row=y, column=x)
 
     def mainloop(self):
         self.root.mainloop()
