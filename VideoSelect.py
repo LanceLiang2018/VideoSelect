@@ -56,18 +56,25 @@ class VideoSelect:
             ret, frame = cap.read()
             width = int(cap.get(3))
             height = int(cap.get(4))
-            print(self.max_width, self.max_height)
+            width_target, height_target = width, height
+            print('src:', width, height)
+            print("dist:", self.max_width, self.max_height)
             if width >= height:
-                width = int(self.max_width)
-                height = int(width / self.max_width * self.max_height)
-            if width < height:
-                height = int(self.max_height)
-                width = int(height / self.max_height * self.max_width)
-            print(width, height)
+                width_target = self.max_width
+                height_target = self.max_height * height / width
+            else:
+                height_target = self.max_height
+                width_target = self.max_width * width / height
+                # https: // blog.csdn.net / yuejisuo1948 / article / details / 80734908
+            width_target, height_target = int(width_target), int(height_target)
+            height_target += 48
+            print('Target: ', width_target, height_target)
             while cap.isOpened():
                 cv2.namedWindow(self.filename, 0)
                 # cv2.resizeWindow(self.filename, self.max_width, self.max_height)
-                cv2.resizeWindow(self.filename, width, height)
+                # cv2.resizeWindow(self.filename, width, height)
+                cv2.resizeWindow(self.filename, width_target, height_target)
+                # cv2.resizeWindow(self.filename, 1080 // 8, 720 // 8)
                 cv2.moveWindow(self.filename, (self.x - 1) * self.max_width, (self.y - 1) * self.max_height)
 
                 if not pause:
