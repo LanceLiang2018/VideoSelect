@@ -8,6 +8,7 @@ from PIL import Image, ImageTk
 import cv2
 from base_logger import getLogger
 from win32api import GetSystemMetrics
+import math
 
 
 class VideoSelect:
@@ -32,8 +33,20 @@ class VideoSelect:
 
             # self.reader = imageio.get_reader(self.filename)
 
+            self.toolbox = None
+            # 单个的线程锁
+            self.lock = threading.Lock()
+
+            self.tool_s1 = None
+
+            self.start_tool_thread()
+
+        def toolbox_mainloop(self):
+            self.toolbox.mainloop()
+
         def grid(self):
-            self.frame.grid(row=self.y, column=self.x)
+            # self.frame.grid(row=self.y, column=self.x)
+            pass
 
         def start_pay_thread(self):
             if self.thread is not None:
@@ -42,33 +55,58 @@ class VideoSelect:
             self.thread.setDaemon(True)
             self.thread.start()
 
+        def start_tool_thread(self):
+            retry = 0
+            # 尝试5s，5s内没有初始化窗口就失败
+            while retry <= 5000:
+                if self.toolbox is None:
+                    time.sleep(0.001)
+                    retry += 1
+                    continue
+                t = threading.Thread(target=self.toolbox_mainloop)
+                t.setDaemon(True)
+                t.start()
+
         def play_thread(self):
-            # print(len(self.reader))
-            # for frame_count in range(len(self.reader)):
-            #     frame = self.reader[frame_count]
-            #     im = Image.fromarray(frame)
-            #     image = ImageTk.PhotoImage(im)
-            #     self.panel.configure(image=image)
-            #     self.panel.image = image
-            #     # time.sleep(0.01)
             cap = cv2.VideoCapture(self.filename)
             pause = False
             ret, frame = cap.read()
+            if ret is False:
+                self.thread = None
+                # 视频读取失败
+                return
+
             width = int(cap.get(3))
             height = int(cap.get(4))
-            width_target, height_target = width, height
-            print('src:', width, height)
-            print("dist:", self.max_width, self.max_height)
+            # 帧率
+            fps = int(round(cap.get(cv2.CAP_PROP_FPS)))
+            # 视频总帧数
+            total_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            # 计算一下30s的跳转多少帧
+            frame_count_30s = 30 * fps
+            # 当前要读取的帧号。之前已经读取过一遍了
+            frame_cnt = 1
             if width >= height:
                 width_target = self.max_width
                 height_target = self.max_height * height / width
             else:
                 height_target = self.max_height
                 width_target = self.max_width * width / height
-                # https: // blog.csdn.net / yuejisuo1948 / article / details / 80734908
             width_target, height_target = int(width_target), int(height_target)
             height_target += 48
-            print('Target: ', width_target, height_target)
+
+            print('''########{filename}########
+total frames count: {total}
+fps per second: {fps}
+'''.format(total=total_frame, fps=fps, filename=self.filename))
+
+            # 在这里启动toolbox
+            self.toolbox = Toplevel(self.root)
+            self.toolbox.title("视频操作[%s]" % self.filename)
+
+            self.tool_s1 = Scale(self.toolbox, from_=0, to=total_frame, orient=HORIZONTAL)
+            self.tool_s1.pack()
+
             while cap.isOpened():
                 cv2.namedWindow(self.filename, 0)
                 # cv2.resizeWindow(self.filename, self.max_width, self.max_height)
@@ -80,7 +118,7 @@ class VideoSelect:
                 if not pause:
                     ret, frame = cap.read()
                 cv2.imshow(self.filename, frame)
-                k = cv2.waitKey(20)
+                k = cv2.waitKey(int(1000/fps))
                 # q键退出
                 if k & 0xff == ord('q'):
                     break
@@ -111,7 +149,7 @@ class VideoSelect:
 
         self.title = '素材检录 - Lance Liang'
         self.root.title(self.title)
-        self.root.attributes('-fullscreen', 1)
+        # self.root.attributes('-fullscreen', 1)
         # self.root.attributes('-topmost', 0)
 
         # 初始化Frame
